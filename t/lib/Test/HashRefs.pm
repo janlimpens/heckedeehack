@@ -9,51 +9,65 @@ use Test::Class;
 use base qw(Test::Class);
 use Test::More;
 
-$Data::Dumper::Terse = 1;
-$Data::Dumper::Indent = 0;
+# $Data::Dumper::Terse = 1;
+# $Data::Dumper::Indent = 0;
 
-sub test_los_gehts : Test(4) {
-		# ich erkläre ein hash
-		my %h1 = (a=>1, b=>2, c=>3); #zufällig geordnet, aber in eta a1b2c3
-		say %h1;
+sub make_fixture : Test(setup) {
+    my %h1 = (a=>1, b=>2, c=>3);
+    shift->{h1} = \%h1;
+}
 
-		# ich mache eine Referenz darauf
-		my $h1_r = \%h1;
-		is(substr($h1_r,0,4), 'HASH', 'ich bekomme eine Referenz');
+sub test_referenzen_machen : Test {
+	my $h1_r = shift->{h1};
+	is(substr($h1_r,0,4), 'HASH', 'ich bekomme eine Referenz');
+}
 
-		#ich mache ein Array daraus
-		my @h1_a = %h1;
-		say @h1_a; # sieht genauso wie das hash aus
+sub test_mache_ein_array_daraus : Test(3) {
+	my %h1 = shift->{h1}->%*;
 
-		my $key = $h1_a[0];
-		is($h1_a[1], $h1{$key}, 'erstes Element stimmt');
+	#ich mache ein Array daraus
+	my @h1_a = %h1;
+	say @h1_a; # sieht genauso wie das hash aus
 
-		# vergleichen wir die Längen
-		say scalar @h1_a;
-		is(scalar %h1, 3, 'das hash hat 3 Elemente');
-		is(scalar @h1_a, 6, 'das array hat 6 Elemente');
+	my $key = $h1_a[0];
+	is($h1_a[1], $h1{$key}, 'erstes Element stimmt');
 
-		$h1{d} = 1;
-		# is($h1{d}, 1, 'setting on obj');
-		$h1_r->{e}=2; # same same
-		# is($h1_r->{e}, 2, 'setting on ref');
+	# vergleichen wir die Längen
+	say scalar @h1_a;
+	is(scalar %h1, 3, 'das hash hat 3 Elemente');
+	is(scalar @h1_a, 6, 'das array hat 6 Elemente');
+}
 
-		$h1{f} = (4..6);
-		$h1_r->{g} = (7..8);
+sub test_werte_setzen : Test(2) {
+	my %h1 = shift->{h1}->%*;
+	$h1{d} = 1;
+	is($h1{d}, 1, 'setting on obj');
 
-		my $topsy = smart_reverse($h1_r);
-		# is($topsy->{7}, 'g', 'reversed');
+	my $h1_r = \%h1;
+	$h1_r->{e} = 2; # same same
+	is($h1{e}, 2, 'setting on ref');
+}
 
-		say Dumper($topsy);
+sub test_smart_reverse :Test(2) {
+	my $h1 = shift->{h1};
+	$h1->{f} = 4;
+	$h1->{g} = 4;
+	my $topsy = smart_reverse($h1);
+	say Dumper($topsy->%*);
+	is($topsy->{1}->@*, q(a), 'reversed');
+	is($topsy->{4}->@*, q(fg), 'reversed');
 }
 
 sub smart_reverse {
-		my %hash = shift->%*;
-		my %result = map {$_=>[]} values %hash; # das sind alles array refs
-		while ( my($k, $v) = each (%hash) ) {
-				push($result{$v}->@*, $k); # hier muss ich dereffen sonst pushe ich auf skalar
+	my %hash = shift->%*;
+	my $result = {};
+	while ( my($k, $v) = each (%hash) ) {
+		unless (defined $result->{$v}){
+			$result->{$v} = [];
 		}
-		return \%result;
+		push($result->{$v}->@*, $k); # hier muss ich dereffen sonst pushe ich auf skalar
+	}
+	return $result;
 }
 
 1;
